@@ -18,6 +18,7 @@ Desarrollar un modelo de Machine Learning basado en NLP para clasificar textos n
 |---|---|---|
 | U20221c424 | Díaz Chávez | Ángel Gabriel |
 | U202312907 | Claros Simon | Williams Giusseppi |
+| U202111912 | Alvarado Valle | Robert Leonardo |
 
 ---
 
