@@ -1,0 +1,8 @@
+numpy>=2.3,<3
+pandas>=2.3,<4
+scikit-learn>=1.7,<2
+joblib>=1.5,<2
+lightgbm>=4.6,<5
+gensim>=4.4,<5
+torch>=2.7,<3
+transformers>=5,<6

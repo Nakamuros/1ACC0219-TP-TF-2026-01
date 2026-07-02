@@ -33,20 +33,35 @@ Desarrollar un modelo de Machine Learning basado en NLP para clasificar textos n
 
 ---
 
-## Modelos implementados
+## Modelos planificados e implementados
 
-| # | Modelo | Vectorización |
-|---|---|---|
-| 1 | Regresión Logística | TF-IDF |
-| 2 | SVM (kernel lineal) | TF-IDF |
-| 3 | Word2Vec + Regresión Logística | Embeddings propios |
-| 4 | mental-roberta-base | Transformer |
+| # | Modelo | Vectorización | Estado |
+|---|---|---|---|
+| 1 | Regresión Logística | TF-IDF | Implementado |
+| 2 | SVM (kernel lineal) | TF-IDF | Implementado |
+| 3 | LightGBM | TF-IDF | Implementado |
+| 4 | Word2Vec + Regresión Logística | Embeddings propios | Implementado |
+| 5 | mental-roberta-base | Transformer | Implementado |
+
+Resultados de prueba de los modelos adicionales:
+
+- **Word2Vec + Regresión Logística:** accuracy 0.7279, Macro F1 0.7227.
+- **MentalRoBERTa:** accuracy 0.7274, Macro F1 0.6644. Por las limitaciones de
+  ejecución sin GPU, se entrenó la cabeza de clasificación durante una época con
+  una muestra estratificada de 9,000 textos; el encoder preentrenado se mantuvo
+  congelado.
 
 ---
 
 ## Conclusiones
 
 El análisis exploratorio evidenció patrones léxicos estadísticamente diferenciadores entre las tres clases: Normal presenta vocabulario diverso de cotidianidad, mientras Depression y Suicidal comparten un núcleo semántico de desesperanza con vocabulario repetitivo y carga emocional negativa. La progresión de modelos de TF-IDF hacia representaciones Transformer permitió cuantificar el aporte real de cada enfoque de representación textual para esta tarea de clasificación en dominio de salud mental.
+
+---
+
+## Aplicación web
+
+El proyecto incluye una interfaz conversacional en React y una API en FastAPI para analizar textos con los modelos entrenados. Consulta [WEBAPP.md](WEBAPP.md) para ejecutarla localmente.
 
 ---
 
