@@ -45,11 +45,46 @@ Desarrollar un modelo de Machine Learning basado en NLP para clasificar textos n
 
 Resultados de prueba de los modelos adicionales:
 
-- **Word2Vec + Regresión Logística:** accuracy 0.7279, Macro F1 0.7227.
-- **MentalRoBERTa:** accuracy 0.7274, Macro F1 0.6644. Por las limitaciones de
-  ejecución sin GPU, se entrenó la cabeza de clasificación durante una época con
-  una muestra estratificada de 9,000 textos; el encoder preentrenado se mantuvo
-  congelado.
+- **Regresión Logística + TF-IDF:** accuracy 0.7963, Macro F1 0.7859 y F2
+  Suicidal 0.6981.
+- **SVM lineal + TF-IDF:** accuracy 0.7875, Macro F1 0.7745 y F2 Suicidal
+  0.6530.
+- **Word2Vec + Regresión Logística:** accuracy 0.7386, Macro F1 0.7341 y F2
+  Suicidal 0.6820.
+- **MentalRoBERTa:** accuracy 0.7879, Macro F1 0.7706. El encoder preentrenado se
+  mantuvo congelado para hacer viable el entrenamiento sin GPU.
+- **LightGBM optimizado:** F2 de Suicidal 0.7666 y recall de Suicidal 0.8260 en
+  test sin textos duplicados entre particiones. La configuración y el umbral se
+  eligieron exclusivamente con validación; el test se reservó para la medición
+  final. Los detalles reproducibles están en `modelo_lightgbm_metrics.json`.
+
+La comparación de LightGBM, Regresión Logística, SVM y Word2Vec emplea las
+mismas 39,398 entradas, semilla y partición 70/15/15 sin duplicados entre
+conjuntos. Los experimentos de los baselines están en
+`modelos_baseline_metrics.json`.
+
+Al optimizar todos los modelos bajo el mismo objetivo de seguridad —F2 de
+Suicidal con precisión mínima de 0.60 en validación— los resultados de test son:
+
+| Modelo | Accuracy | Macro F1 | F2 Suicidal | Recall Suicidal |
+|---|---:|---:|---:|---:|
+| Regresión Logística | 0.7765 | 0.7694 | **0.7704** | **0.8298** |
+| LightGBM | **0.7836** | **0.7774** | 0.7666 | 0.8260 |
+| SVM lineal | 0.7810 | 0.7731 | 0.7665 | 0.8222 |
+| Word2Vec + Regresión Logística | 0.7308 | 0.7294 | 0.7048 | 0.7393 |
+
+Esto muestra que la ventaja inicial de LightGBM en F2 provenía en parte de que
+era el único modelo con pesos y umbral especializados. La búsqueda completa y
+sus umbrales están en `modelos_f2_optimized_metrics.json` y
+`model_decision_thresholds.json`.
+
+Para repetir el ajuste de LightGBM:
+
+```bash
+python train_tuned_lightgbm.py
+python train_fair_baselines.py
+python optimize_suicidal_baselines.py
+```
 
 ---
 
@@ -62,6 +97,9 @@ El análisis exploratorio evidenció patrones léxicos estadísticamente diferen
 ## Aplicación web
 
 El proyecto incluye una interfaz conversacional en React y una API en FastAPI para analizar textos con los modelos entrenados. Consulta [WEBAPP.md](WEBAPP.md) para ejecutarla localmente.
+Opcionalmente, una clave configurada en `.env` habilita Gemini como generador de
+preguntas de seguimiento. Gemini no clasifica estados ni decide alertas; esas
+funciones permanecen en los modelos y reglas locales.
 
 ---
 

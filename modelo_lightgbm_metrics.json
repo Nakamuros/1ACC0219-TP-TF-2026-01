@@ -1,0 +1,84 @@
+{
+  "selection_metric": "suicidal_f2",
+  "minimum_suicidal_precision": 0.6,
+  "decision_threshold": 0.3900000000000001,
+  "best_parameters": {
+    "depression_weight": 1.0,
+    "suicidal_weight": 2.25,
+    "num_leaves": 31
+  },
+  "best_iteration": 910,
+  "data": {
+    "usable_rows": 39398,
+    "ambiguous_rows_removed": 132,
+    "train_rows": 27578,
+    "validation_rows": 5910,
+    "test_rows": 5910
+  },
+  "validation": {
+    "accuracy": 0.7905245346869713,
+    "macro_f1": 0.7848811670072348,
+    "macro_f2": 0.7896245752488157,
+    "suicidal_precision": 0.6058823529411764,
+    "suicidal_recall": 0.8528662420382166,
+    "suicidal_f2": 0.7885747938751473
+  },
+  "test": {
+    "accuracy": 0.7835871404399323,
+    "macro_f1": 0.7774095610451814,
+    "macro_f2": 0.7817607053185371,
+    "suicidal_precision": 0.5953146531924667,
+    "suicidal_recall": 0.8260038240917782,
+    "suicidal_f2": 0.7665917425766
+  },
+  "experiments": [
+    {
+      "parameters": {
+        "depression_weight": 1.0,
+        "suicidal_weight": 2.25,
+        "num_leaves": 31
+      },
+      "best_iteration": 910,
+      "argmax_validation": {
+        "accuracy": 0.805414551607445,
+        "macro_f1": 0.7990648923931154,
+        "macro_f2": 0.8022644645711208,
+        "suicidal_precision": 0.6437371663244353,
+        "suicidal_recall": 0.7987261146496816,
+        "suicidal_f2": 0.7620320855614974
+      }
+    },
+    {
+      "parameters": {
+        "depression_weight": 1.25,
+        "suicidal_weight": 2.5,
+        "num_leaves": 31
+      },
+      "best_iteration": 796,
+      "argmax_validation": {
+        "accuracy": 0.8032148900169205,
+        "macro_f1": 0.797069837468206,
+        "macro_f2": 0.7998560099166946,
+        "suicidal_precision": 0.6416364577938892,
+        "suicidal_recall": 0.789171974522293,
+        "suicidal_f2": 0.7544757033248082
+      }
+    },
+    {
+      "parameters": {
+        "depression_weight": 1.5,
+        "suicidal_weight": 3.0,
+        "num_leaves": 31
+      },
+      "best_iteration": 929,
+      "argmax_validation": {
+        "accuracy": 0.804906937394247,
+        "macro_f1": 0.7990047885339283,
+        "macro_f2": 0.8014113864884053,
+        "suicidal_precision": 0.646379853095488,
+        "suicidal_recall": 0.7847133757961784,
+        "suicidal_f2": 0.7525042755924749
+      }
+    }
+  ]
+}

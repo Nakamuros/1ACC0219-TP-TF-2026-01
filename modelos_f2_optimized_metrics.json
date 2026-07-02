@@ -1,0 +1,87 @@
+{
+  "selection_metric": "suicidal_f2",
+  "minimum_validation_precision": 0.6,
+  "models": {
+    "logistic": {
+      "C": 0.2125,
+      "class_weight": {
+        "Normal": 1.0,
+        "Depression": 1.15,
+        "Suicidal": 2.7
+      },
+      "decision_threshold": 0.4670000000000001,
+      "validation": {
+        "accuracy": 0.7820642978003384,
+        "macro_f1": 0.7753978216583932,
+        "macro_f2": 0.7812455320964223,
+        "suicidal_precision": 0.6084200995925758,
+        "suicidal_recall": 0.8560509554140128,
+        "suicidal_f2": 0.791612675226764
+      },
+      "test": {
+        "accuracy": 0.7764805414551608,
+        "macro_f1": 0.7693546091245596,
+        "macro_f2": 0.7747629928701619,
+        "suicidal_precision": 0.5988960441582337,
+        "suicidal_recall": 0.8298279158699808,
+        "suicidal_f2": 0.770414201183432
+      },
+      "coarse_candidates": 8,
+      "refined_candidates": 8
+    },
+    "svm": {
+      "C": 0.2125,
+      "class_weight": {
+        "Normal": 1.0,
+        "Depression": 0.85,
+        "Suicidal": 1.45
+      },
+      "decision_threshold": 0.34,
+      "validation": {
+        "accuracy": 0.7805414551607445,
+        "macro_f1": 0.7731513834700658,
+        "macro_f2": 0.7788395144339265,
+        "suicidal_precision": 0.6012715712988193,
+        "suicidal_recall": 0.8433121019108281,
+        "suicidal_f2": 0.7804763027587833
+      },
+      "test": {
+        "accuracy": 0.7810490693739425,
+        "macro_f1": 0.7730924182180131,
+        "macro_f2": 0.7784285299621043,
+        "suicidal_precision": 0.603085553997195,
+        "suicidal_recall": 0.8221797323135756,
+        "suicidal_f2": 0.7664884135472371
+      },
+      "coarse_candidates": 8,
+      "refined_candidates": 8
+    },
+    "word2vec": {
+      "C": 0.2875,
+      "class_weight": {
+        "Normal": 1.0,
+        "Depression": 1.35,
+        "Suicidal": 1.45
+      },
+      "decision_threshold": 0.37200000000000005,
+      "validation": {
+        "accuracy": 0.727580372250423,
+        "macro_f1": 0.7273482922919761,
+        "macro_f2": 0.7285898973674194,
+        "suicidal_precision": 0.6017076845806127,
+        "suicidal_recall": 0.7630573248407644,
+        "suicidal_f2": 0.724217144238907
+      },
+      "test": {
+        "accuracy": 0.7307952622673435,
+        "macro_f1": 0.729371449943032,
+        "macro_f2": 0.7300627749071067,
+        "suicidal_precision": 0.593958013312852,
+        "suicidal_recall": 0.7393244104525175,
+        "suicidal_f2": 0.704824401506866
+      },
+      "coarse_candidates": 8,
+      "refined_candidates": 8
+    }
+  }
+}
