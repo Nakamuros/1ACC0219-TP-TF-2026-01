@@ -17,22 +17,23 @@ from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
 
 ROOT = Path(__file__).resolve().parents[1]
+MODELS_DIR = ROOT / "modelos"
 load_dotenv(ROOT / ".env")
 LABELS = ["Normal", "Depression", "Suicidal"]
 MODEL_FILES = {
-    "lightgbm": ROOT / "modelo_lightgbm_salud_mental.pkl",
-    "logistic": ROOT / "modelo_regresion_logistica.pkl",
-    "svm": ROOT / "modelo_svm_lineal.pkl",
-    "mental_roberta": ROOT / "modelo_mental_roberta",
+    "lightgbm": MODELS_DIR / "modelo_lightgbm_salud_mental.pkl",
+    "logistic": MODELS_DIR / "modelo_regresion_logistica.pkl",
+    "svm": MODELS_DIR / "modelo_svm_lineal.pkl",
+    "mental_roberta": MODELS_DIR / "modelo_mental_roberta",
 }
 
 
 @lru_cache(maxsize=1)
 def model_decision_thresholds() -> dict[str, float]:
-    thresholds_path = ROOT / "model_decision_thresholds.json"
+    thresholds_path = MODELS_DIR / "model_decision_thresholds.json"
     if thresholds_path.exists():
         return json.loads(thresholds_path.read_text(encoding="utf-8"))
-    metrics_path = ROOT / "modelo_lightgbm_metrics.json"
+    metrics_path = MODELS_DIR / "modelo_lightgbm_metrics.json"
     lightgbm = 0.5 if not metrics_path.exists() else float(
         json.loads(metrics_path.read_text(encoding="utf-8"))["decision_threshold"]
     )
@@ -50,6 +51,10 @@ app.add_middleware(
 class ConversationTurn(BaseModel):
     role: str = Field(pattern="^(user|assistant)$")
     text: str = Field(min_length=1, max_length=5000)
+    # Molde neutro en 1a persona (inglés, con hueco "___") que Gemini adjunta a
+    # una pregunta para reconstruir respuestas elípticas cortas. Solo en turnos
+    # del asistente; el frontend lo reenvía en el historial.
+    frame: str | None = Field(default=None, max_length=300)
 
 
 class AnalysisRequest(BaseModel):
@@ -107,31 +112,25 @@ def fallback_reply(label: str, immediate_risk: bool, language: str) -> str:
 
 
 def generate_conversation_reply(
-    turns: list[ConversationTurn], language: str, label: str,
-    immediate_risk: bool, create_summary: bool = False,
+    turns: list[ConversationTurn], language: str, label: str, immediate_risk: bool,
 ) -> tuple[str, str, str | None]:
-    """Use Gemini as interviewer and neutral summarizer, never as classifier."""
+    """Gemini conduce la conversación y adjunta un MOLDE neutro para la respuesta.
+
+    Nunca clasifica, resume ni reconstruye el texto que se envía al modelo. El
+    molde (answer_frame) es una plantilla en 1a persona con un hueco "___" creada
+    ANTES de ver la respuesta, para de-elipsar respuestas cortas (ver analyze).
+    """
     fallback = fallback_reply(label, immediate_risk, language)
     api_key = os.getenv("GEMINI_API_KEY", "").strip()
     if not api_key or immediate_risk:
-        return fallback, "local-safety" if immediate_risk else "local-fallback", None
+        return fallback, ("local-safety" if immediate_risk else "local-fallback"), None
 
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
-    selected_turns = turns if create_summary else turns[-6:]
     conversation = "\n".join(
         f"{turn.role.title()} turn {index + 1}: {redact_for_external_service(turn.text)}"
-        for index, turn in enumerate(selected_turns)
+        for index, turn in enumerate(turns[-6:])
     )
     target_language = "Spanish" if language == "es" else "English"
-    output_instruction = (
-        "Return ONLY valid JSON with this shape: "
-        '{"assistant_reply":"...","factual_summary_en":"..."}. '
-        "The factual_summary_en must be a concise English reconstruction using only facts explicitly "
-        "stated by the user, resolving short answers from the assistant question. Do not diagnose, "
-        "classify, infer missing facts, or include assistant statements as user facts."
-        if create_summary else
-        "Return only the conversational reply as plain text."
-    )
     payload = {
         "systemInstruction": {"parts": [{"text": (
             "You are the conversational interviewer of an academic mental-health NLP project. "
@@ -139,15 +138,20 @@ def generate_conversation_reply(
             "one short, open, non-leading follow-up question that helps the user describe duration, "
             "impact, support or current safety. Do not diagnose, classify, mention probabilities, claim "
             "to be a professional, prescribe treatment, or replace human help. Do not request names, "
-            "addresses, phone numbers, emails or other identifying data. Keep the response under 60 words. "
-            + output_instruction
+            "addresses, phone numbers, emails or other identifying data. Keep assistant_reply under 60 words. "
+            'Return ONLY valid JSON: {"assistant_reply":"...","answer_frame":"..."}. '
+            "answer_frame is a NEUTRAL first-person sentence IN THE SAME LANGUAGE as assistant_reply, with "
+            "EXACTLY ONE '___' slot that would turn a SHORT answer to your question into a standalone statement "
+            "(asking 'since when?' -> 'I have felt this way for ___'; 'desde cuándo?' -> 'Me he sentido así "
+            "desde ___'). Keep it neutral, assume nothing about how the person feels, and never put clinical "
+            "labels in it. If your question does not expect a short answer, set answer_frame to an empty string."
         )}]},
         "contents": [{"role": "user", "parts": [{"text": (
-            f"Respond to the user in {target_language}.\nQuoted conversation:\n{conversation}"
+            f"Write assistant_reply in {target_language}.\nQuoted conversation:\n{conversation}"
         )}]}],
         "generationConfig": {
             "temperature": 0.4,
-            "maxOutputTokens": 180,
+            "maxOutputTokens": 220,
             # Gemini 2.5 otherwise spends much of this small budget on hidden
             # reasoning and may return a visibly truncated sentence.
             "thinkingConfig": {"thinkingBudget": 0},
@@ -161,17 +165,19 @@ def generate_conversation_reply(
         )
         response.raise_for_status()
         content = response.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        if create_summary:
-            content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content).strip()
-            parsed = json.loads(content)
-            reply = str(parsed["assistant_reply"]).strip()
-            summary = str(parsed["factual_summary_en"]).strip()
-            if not summary:
-                raise ValueError("Gemini returned an empty contextual summary")
-            return (reply or fallback), "gemini", summary
-        return (content or fallback), "gemini", None
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
         return fallback, "local-fallback", None
+
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", content).strip()
+    try:
+        parsed = json.loads(cleaned)
+        reply = str(parsed.get("assistant_reply", "")).strip()
+        frame = str(parsed.get("answer_frame", "")).strip() or None
+        if frame and "___" not in frame:
+            frame = None
+    except (json.JSONDecodeError, TypeError):
+        reply, frame = content, None
+    return (reply or fallback), "gemini", frame
 
 
 @lru_cache(maxsize=5)
@@ -184,7 +190,7 @@ def load_artifact(path: str):
 def load_mental_roberta():
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-    path = str(ROOT / "modelo_mental_roberta")
+    path = str(MODELS_DIR / "modelo_mental_roberta")
     tokenizer = AutoTokenizer.from_pretrained(path, local_files_only=True)
     model = AutoModelForSequenceClassification.from_pretrained(path, local_files_only=True)
     model.eval()
@@ -195,7 +201,7 @@ def load_mental_roberta():
 def load_translator():
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-    path = str(ROOT / "modelo_traduccion_es_en")
+    path = str(MODELS_DIR / "modelo_traduccion_es_en")
     tokenizer = AutoTokenizer.from_pretrained(path, local_files_only=True)
     model = AutoModelForSeq2SeqLM.from_pretrained(path, local_files_only=True)
     model.eval()
@@ -217,28 +223,98 @@ def health():
     return {"status": "ok", "geminiConfigured": bool(os.getenv("GEMINI_API_KEY", "").strip())}
 
 
+MODEL_NAMES = {
+    "lightgbm": "LightGBM", "logistic": "Regresión logística",
+    "svm": "SVM lineal", "mental_roberta": "MentalRoBERTa",
+}
+
+
 @app.get("/api/models")
 def models():
     return [
-        {"id": key, "available": path.exists(), "name": {
-            "lightgbm": "LightGBM", "logistic": "Regresión logística", "svm": "SVM lineal",
-            "mental_roberta": "MentalRoBERTa",
-        }[key]}
+        {"id": key, "available": path.exists(), "name": MODEL_NAMES[key]}
         for key, path in MODEL_FILES.items()
     ]
+
+
+class CompareRequest(BaseModel):
+    text: str = Field(min_length=3, max_length=5000)
+    history: list[ConversationTurn] = Field(default_factory=list, max_length=30)
+    language: str = Field(default="es", pattern="^(es|en)$")
+
+
+def classify(model_key: str, natural_text: str) -> np.ndarray:
+    """Clasifica texto NATURAL aplicando el preprocesado correcto por modelo.
+
+    RoBERTa recibe el texto natural (aprovecha frases completas y negaciones);
+    los modelos TF-IDF reciben clean_text(), igual que en su entrenamiento.
+    """
+    if model_key == "mental_roberta":
+        import torch
+
+        tokenizer, model = load_mental_roberta()
+        encoded = tokenizer(natural_text, return_tensors="pt", truncation=True, max_length=128)
+        with torch.inference_mode():
+            return torch.softmax(model(**encoded).logits[0], dim=0).cpu().numpy()
+
+    prepared = clean_text(natural_text)
+    vectorizer_path = MODELS_DIR / (
+        "vectorizador_lightgbm_tfidf.pkl"
+        if model_key == "lightgbm" else "vectorizador_tfidf.pkl"
+    )
+    vectorizer = load_artifact(str(vectorizer_path))
+    model = load_artifact(str(MODEL_FILES[model_key]))
+    features = vectorizer.transform([prepared])
+    if hasattr(model, "predict_proba"):
+        return np.asarray(model.predict_proba(features)[0], dtype=float)
+    return softmax(np.asarray(model.decision_function(features)[0], dtype=float))
+
+
+def decision_index(model_key: str, values: np.ndarray) -> int:
+    threshold = model_decision_thresholds().get(model_key)
+    if threshold is None:
+        return int(np.argmax(values))
+    return 2 if values[2] >= threshold else int(np.argmax(values[:2]))
+
+
+@app.post("/api/compare")
+def compare(request: CompareRequest):
+    """Evalúa el MISMO mensaje con los cuatro modelos para compararlos."""
+    translation = (
+        translate_to_english([request.text])[0]
+        if request.language == "es" else request.text
+    )
+    cleaned = clean_text(translation)
+    if not cleaned:
+        raise HTTPException(422, "El texto no contiene suficientes palabras analizables en inglés.")
+
+    results = []
+    for key, path in MODEL_FILES.items():
+        if not path.exists():
+            results.append({"model": key, "name": MODEL_NAMES[key], "available": False})
+            continue
+        probabilities = classify(key, translation)
+        probabilities = probabilities / probabilities.sum()
+        index = decision_index(key, probabilities)
+        results.append({
+            "model": key,
+            "name": MODEL_NAMES[key],
+            "available": True,
+            "label": LABELS[index],
+            "confidence": round(float(probabilities[index]), 4),
+            "distribution": [
+                {"label": LABELS[i], "probability": round(float(probabilities[i]), 4)}
+                for i in range(len(LABELS))
+            ],
+        })
+    return {"translatedText": translation, "cleanText": cleaned, "results": results}
 
 
 @app.post("/api/analyze")
 def analyze(request: AnalysisRequest):
     if request.model not in MODEL_FILES:
         raise HTTPException(400, "Modelo desconocido")
-
-    model_path = MODEL_FILES[request.model]
-    vectorizer_path = ROOT / (
-        "vectorizador_lightgbm_tfidf.pkl"
-        if request.model == "lightgbm" else "vectorizador_tfidf.pkl"
-    )
-    if not model_path.exists():
+    if not MODEL_FILES[request.model].exists():
         raise HTTPException(
             503,
             f"El modelo {request.model} aún no fue generado. Ejecuta Entrenamiento.ipynb.",
@@ -247,65 +323,71 @@ def analyze(request: AnalysisRequest):
     prior_user_texts = [turn.text for turn in request.history if turn.role == "user"]
     source_user_texts = [*prior_user_texts, request.text]
     model_texts = translate_to_english(source_user_texts) if request.language == "es" else source_user_texts
-    current_translation = model_texts[-1]
-    current_text = clean_text(current_translation)
+    current_translation = model_texts[-1]              # texto natural (sin limpiar)
+    current_text = clean_text(current_translation)     # solo para validar/mostrar
     if not current_text:
         raise HTTPException(422, "El texto no contiene suficientes palabras analizables en inglés.")
 
-    history = [clean_text(text) for text in model_texts[:-1]]
-    history = [text for text in history if text]
+    prior_translations = [text for text in model_texts[:-1] if text.strip()]
 
-    def predict(text: str) -> np.ndarray:
-        if request.model == "mental_roberta":
-            import torch
-
-            tokenizer, model = load_mental_roberta()
-            encoded = tokenizer(text, return_tensors="pt", truncation=True, max_length=128)
-            with torch.inference_mode():
-                return torch.softmax(model(**encoded).logits[0], dim=0).cpu().numpy()
-
-        vectorizer = load_artifact(str(vectorizer_path))
-        model = load_artifact(str(model_path))
-        features = vectorizer.transform([text])
-        if hasattr(model, "predict_proba"):
-            return np.asarray(model.predict_proba(features)[0], dtype=float)
-        scores = np.asarray(model.decision_function(features)[0], dtype=float)
-        return softmax(scores)
-
-    current_probabilities = predict(current_text)
+    current_probabilities = classify(request.model, current_translation)
     threshold = model_decision_thresholds().get(request.model)
 
     def decision_for(values: np.ndarray) -> int:
         if threshold is None:
             return int(np.argmax(values))
         return 2 if values[2] >= threshold else int(np.argmax(values[:2]))
-    # Every fourth user response creates a neutral conversation-level summary.
-    # Individual messages are still analyzed on every turn for immediate safety.
+    # Cada cuarta respuesta del usuario reconstruye la conversación en 1a persona.
+    # Cada mensaje se sigue analizando por separado para la seguridad inmediata.
     user_turn_count = len(prior_user_texts) + 1
     contextual_updated = request.force_context or user_turn_count % 4 == 0
     turns = [*request.history, ConversationTurn(role="user", text=request.text)]
-    recent_history = history[-2:]
+    recent = prior_translations[-2:]
     recent_risk = False
-    if recent_history:
-        history_probabilities = np.stack([predict(text) for text in recent_history])
-        recent_risk = any(decision_for(values) == 2 for values in history_probabilities[-2:])
-    # Immediate safety follows the validated policy of the selected model and
-    # is never diluted by a benign or adverse conversation history.
+    if recent:
+        recent_probabilities = np.stack([classify(request.model, text) for text in recent])
+        recent_risk = any(decision_for(values) == 2 for values in recent_probabilities[-2:])
+    # La seguridad inmediata sigue la política validada del modelo y nunca se
+    # diluye con un historial benigno o adverso.
     immediate_risk = decision_for(current_probabilities) == 2
 
-    assistant_reply, reply_source, contextual_summary = generate_conversation_reply(
-        turns, request.language, LABELS[decision_for(current_probabilities)],
-        immediate_risk, contextual_updated,
+    assistant_reply, reply_source, answer_frame = generate_conversation_reply(
+        turns, request.language, LABELS[decision_for(current_probabilities)], immediate_risk,
     )
-    # If Gemini is unavailable at a checkpoint, concatenating translated user
-    # evidence is a transparent fallback and still preserves more context than
-    # averaging unrelated probabilities.
-    if contextual_updated and not contextual_summary:
-        contextual_summary = ". ".join(model_texts)
-    if contextual_summary:
-        summary_text = clean_text(contextual_summary)
-        probabilities = predict(summary_text) if summary_text else current_probabilities.copy()
+    # El texto que se clasifica son las PROPIAS palabras del usuario concatenadas.
+    # Para respuestas cortas (elípticas), se rellena mecánicamente el molde neutro
+    # que Gemini adjuntó a la pregunta previa: Gemini nunca ve la respuesta al crearlo.
+    if contextual_updated:
+        turn_frames, pending_frame = [], None
+        for turn in request.history:
+            if turn.role == "assistant":
+                pending_frame = turn.frame
+            else:
+                turn_frames.append(pending_frame)
+                pending_frame = None
+        turn_frames.append(pending_frame)  # molde para el mensaje actual
+
+        def assemble(raw_text: str, frame: str | None) -> str:
+            raw_text = raw_text.strip(" .")
+            # Solo se rellena el molde en respuestas realmente cortas (elípticas).
+            if frame and "___" in frame and len(raw_text.split()) <= 3:
+                return frame.replace("___", raw_text).strip(" .")
+            return raw_text
+
+        # Se ensambla en el idioma original (moldes en ese idioma) y se traduce
+        # la narrativa completa UNA sola vez, para no mezclar idiomas.
+        source_narrative = ". ".join(
+            assemble(raw, frame)
+            for raw, frame in zip(source_user_texts, turn_frames)
+            if raw.strip()
+        )
+        contextual_narrative = (
+            translate_to_english([source_narrative])[0]
+            if request.language == "es" else source_narrative
+        )
+        probabilities = classify(request.model, contextual_narrative)
     else:
+        contextual_narrative = None
         probabilities = current_probabilities.copy()
     probabilities = probabilities / probabilities.sum()
     prediction = decision_for(probabilities)
@@ -326,10 +408,11 @@ def analyze(request: AnalysisRequest):
         "currentDistribution": current_distribution,
         "contextMessages": user_turn_count,
         "contextualUpdated": contextual_updated,
-        "contextualSummary": contextual_summary,
+        "contextualSummary": contextual_narrative,
         "immediateRisk": immediate_risk,
         "recentRisk": recent_risk,
         "assistantReply": assistant_reply,
+        "answerFrame": answer_frame,
         "replySource": reply_source,
         "model": request.model,
         "cleanText": current_text,

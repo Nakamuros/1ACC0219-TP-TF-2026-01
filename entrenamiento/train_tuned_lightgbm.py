@@ -52,7 +52,7 @@ def metrics(labels: np.ndarray, predictions: np.ndarray) -> dict[str, float]:
 
 
 def main() -> None:
-    frame = pd.read_csv("mental_health_cleaned.csv", usecols=["tokens", "status"])
+    frame = pd.read_csv("datos/mental_health_cleaned.csv", usecols=["tokens", "status"])
     frame = frame[frame.status.isin(LABELS)].copy()
     frame["text"] = frame.tokens.map(rebuild_text)
 
@@ -137,9 +137,9 @@ def main() -> None:
         "experiments": experiments,
     }
     # Keep the legacy 12k-feature vectorizer used by LR/SVM untouched.
-    joblib.dump(vectorizer, "vectorizador_lightgbm_tfidf.pkl")
-    joblib.dump(best_model, "modelo_lightgbm_salud_mental.pkl")
-    Path("modelo_lightgbm_metrics.json").write_text(
+    joblib.dump(vectorizer, "modelos/vectorizador_lightgbm_tfidf.pkl")
+    joblib.dump(best_model, "modelos/modelo_lightgbm_salud_mental.pkl")
+    Path("modelos/modelo_lightgbm_metrics.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )
     print(json.dumps(report, indent=2))

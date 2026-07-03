@@ -12,6 +12,20 @@ Desarrollar un modelo de Machine Learning basado en NLP para clasificar textos n
 
 ---
 
+## Estructura del proyecto
+
+```
+modelos/          Modelos entrenados, vectorizadores, métricas y umbrales (.pkl, .model, .json)
+datos/            Datasets de entrada (.csv)
+entrenamiento/    Scripts y notebooks de entrenamiento/evaluación (train_*.py, *.ipynb)
+backend/          API FastAPI (main.py) que sirve la clasificación
+frontend/         Interfaz web (Vite + React)
+```
+
+> Los scripts y notebooks de `entrenamiento/` se ejecutan desde la raíz del repositorio (leen de `datos/` y escriben en `modelos/`).
+
+---
+
 ## Integrantes
 
 | Código | Apellidos | Nombres |

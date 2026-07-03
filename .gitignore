@@ -8,3 +8,8 @@ frontend/dist/
 .env
 .env.*
 !.env.example
+
+# Herramientas locales de desarrollo/logging (no forman parte de la entrega)
+chatlog.py
+chat-yez.log
+start-app.sh

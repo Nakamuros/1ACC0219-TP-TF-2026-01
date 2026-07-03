@@ -31,7 +31,7 @@ npm install
 npm run dev
 ```
 
-Abrir `http://localhost:5173`. LightGBM ya cuenta con un artefacto. Regresión Logística y SVM aparecerán disponibles después de ejecutar las nuevas celdas de `Entrenamiento.ipynb`, que generan sus archivos `.pkl`.
+Abrir `http://localhost:5173`. LightGBM ya cuenta con un artefacto. Regresión Logística y SVM aparecerán disponibles después de ejecutar las nuevas celdas de `entrenamiento/Entrenamiento.ipynb`, que generan sus archivos `.pkl` en `modelos/`.
 
 ## Decisiones de producto
 

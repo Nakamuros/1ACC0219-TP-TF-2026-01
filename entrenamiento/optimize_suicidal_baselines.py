@@ -91,7 +91,7 @@ def embed(documents: list[list[str]], word2vec: Word2Vec) -> np.ndarray:
 
 
 def main() -> None:
-    frame = pd.read_csv("mental_health_cleaned.csv", usecols=["tokens", "status"])
+    frame = pd.read_csv("datos/mental_health_cleaned.csv", usecols=["tokens", "status"])
     frame = frame[frame.status.isin(LABELS)].copy()
     frame["token_list"] = frame.tokens.map(parse_tokens)
     frame["text"] = frame.token_list.map(" ".join)
@@ -106,11 +106,11 @@ def main() -> None:
         temporary_i, temporary_y, test_size=0.50, stratify=temporary_y, random_state=SEED
     )
 
-    vectorizer = joblib.load("vectorizador_tfidf.pkl")
+    vectorizer = joblib.load("modelos/vectorizador_tfidf.pkl")
     train_tfidf = vectorizer.transform(frame.text.to_numpy()[train_i])
     validation_tfidf = vectorizer.transform(frame.text.to_numpy()[validation_i])
     test_tfidf = vectorizer.transform(frame.text.to_numpy()[test_i])
-    word2vec = Word2Vec.load("vectorizador_word2vec.model")
+    word2vec = Word2Vec.load("modelos/vectorizador_word2vec.model")
     token_lists = frame.token_list.tolist()
     train_w2v = embed([token_lists[i] for i in train_i], word2vec)
     validation_w2v = embed([token_lists[i] for i in validation_i], word2vec)
@@ -133,14 +133,14 @@ def main() -> None:
         ),
     }
     artifact_names = {
-        "logistic": "modelo_regresion_logistica.pkl",
-        "svm": "modelo_svm_lineal.pkl",
-        "word2vec": "modelo_word2vec_regresion_logistica.pkl",
+        "logistic": "modelos/modelo_regresion_logistica.pkl",
+        "svm": "modelos/modelo_svm_lineal.pkl",
+        "word2vec": "modelos/modelo_word2vec_regresion_logistica.pkl",
     }
 
     report = {"selection_metric": "suicidal_f2", "minimum_validation_precision": MIN_PRECISION,
               "models": {}}
-    thresholds = {"lightgbm": json.loads(Path("modelo_lightgbm_metrics.json").read_text())["decision_threshold"]}
+    thresholds = {"lightgbm": json.loads(Path("modelos/modelo_lightgbm_metrics.json").read_text())["decision_threshold"]}
 
     for name in ("logistic", "svm", "word2vec"):
         train_x, validation_x, test_x = datasets[name]
@@ -183,8 +183,8 @@ def main() -> None:
         }
         print(name, report["models"][name], flush=True)
 
-    Path("modelos_f2_optimized_metrics.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
-    Path("model_decision_thresholds.json").write_text(json.dumps(thresholds, indent=2), encoding="utf-8")
+    Path("modelos/modelos_f2_optimized_metrics.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    Path("modelos/model_decision_thresholds.json").write_text(json.dumps(thresholds, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

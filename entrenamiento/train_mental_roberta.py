@@ -32,7 +32,7 @@ class TextDataset(Dataset):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default="mental/mental-roberta-base")
-    parser.add_argument("--output", default="modelo_mental_roberta")
+    parser.add_argument("--output", default="modelos/modelo_mental_roberta")
     parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--max-length", type=int, default=128)
@@ -44,7 +44,7 @@ def main():
     torch.manual_seed(42)
     torch.set_num_threads(min(16, torch.get_num_threads()))
 
-    frame = pd.read_csv("mental_health_cleaned.csv", usecols=["statement", "status"])
+    frame = pd.read_csv("datos/mental_health_cleaned.csv", usecols=["statement", "status"])
     frame = frame[frame.status.isin(LABELS)].dropna(subset=["statement"])
     texts = frame.statement.astype(str).to_numpy()
     labels = frame.status.map(LABELS).to_numpy()

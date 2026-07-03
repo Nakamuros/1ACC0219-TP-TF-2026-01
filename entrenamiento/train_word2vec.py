@@ -22,7 +22,7 @@ def parse_tokens(value):
         return str(value).split()
 
 
-frame = pd.read_csv("mental_health_cleaned.csv")
+frame = pd.read_csv("datos/mental_health_cleaned.csv")
 frame = frame[frame.status.isin(LABELS)].copy()
 texts = frame.tokens.map(parse_tokens).tolist()
 labels = frame.status.map(LABELS).to_numpy()
@@ -53,7 +53,7 @@ classifier = LogisticRegression(
 )
 classifier.fit(embed(train_x), train_y)
 predictions = classifier.predict(embed(test_x))
-word2vec.save("vectorizador_word2vec.model")
-joblib.dump(classifier, "modelo_word2vec_regresion_logistica.pkl")
+word2vec.save("modelos/vectorizador_word2vec.model")
+joblib.dump(classifier, "modelos/modelo_word2vec_regresion_logistica.pkl")
 print(f"Accuracy: {accuracy_score(test_y, predictions):.4f}")
 print(f"Macro F1: {f1_score(test_y, predictions, average='macro'):.4f}")

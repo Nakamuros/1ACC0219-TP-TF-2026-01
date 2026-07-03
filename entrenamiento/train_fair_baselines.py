@@ -50,7 +50,7 @@ def embed(documents: list[list[str]], word2vec: Word2Vec) -> np.ndarray:
 
 
 def main() -> None:
-    frame = pd.read_csv("mental_health_cleaned.csv", usecols=["tokens", "status"])
+    frame = pd.read_csv("datos/mental_health_cleaned.csv", usecols=["tokens", "status"])
     frame = frame[frame.status.isin(LABELS)].copy()
     frame["token_list"] = frame.tokens.map(parse_tokens)
     frame["text"] = frame.token_list.map(" ".join)
@@ -139,12 +139,12 @@ def main() -> None:
         "experiments": w2v_experiments,
     }
 
-    joblib.dump(vectorizer, "vectorizador_tfidf.pkl")
-    joblib.dump(winners["logistic_regression"], "modelo_regresion_logistica.pkl")
-    joblib.dump(winners["linear_svm"], "modelo_svm_lineal.pkl")
-    word2vec.save("vectorizador_word2vec.model")
-    joblib.dump(w2v_winner, "modelo_word2vec_regresion_logistica.pkl")
-    Path("modelos_baseline_metrics.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    joblib.dump(vectorizer, "modelos/vectorizador_tfidf.pkl")
+    joblib.dump(winners["logistic_regression"], "modelos/modelo_regresion_logistica.pkl")
+    joblib.dump(winners["linear_svm"], "modelos/modelo_svm_lineal.pkl")
+    word2vec.save("modelos/vectorizador_word2vec.model")
+    joblib.dump(w2v_winner, "modelos/modelo_word2vec_regresion_logistica.pkl")
+    Path("modelos/modelos_baseline_metrics.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
 
 

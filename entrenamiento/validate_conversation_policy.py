@@ -1,5 +1,10 @@
 """End-to-end behavioral checks for the conversational risk policy."""
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # raíz del repo
+
 from backend.main import AnalysisRequest, analyze
 
 
