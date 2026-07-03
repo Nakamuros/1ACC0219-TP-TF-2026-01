@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 
 type Model = { id: string; name: string; available: boolean };
 type Result = { label: string; confidence: number; model: string; distribution: {label:string; probability:number}[]; currentDistribution:{label:string; probability:number}[]; contextMessages:number; contextualUpdated:boolean; contextualSummary?:string; final?:boolean; immediateRisk:boolean; recentRisk:boolean; assistantReply:string; replySource:'gemini'|'local-fallback'|'local-safety'; translatedText:string; sourceLanguage:'es'|'en'; disclaimer:string };
-type Message = { id:number; role:'user'|'assistant'; text:string; result?:Result; error?:boolean };
+type Message = { id:number; role:'user'|'assistant'; text:string; result?:Result; error?:boolean; frame?:string|null };
+type CompareItem = { model:string; name:string; available:boolean; label?:string; confidence?:number; distribution?:{label:string;probability:number}[] };
 
 const fallbackModels: Model[] = [
   {id:'lightgbm', name:'LightGBM', available:true},
@@ -67,7 +68,7 @@ function ContextPanel({results}:{results:Result[]}){
     <div className="context-summary">
       <div className="context-heading"><div><b>Evaluación contextual</b><small>Se actualiza cada 4 respuestas y al finalizar</small></div>{latest&&<span>{latest.label}</span>}</div>
       {!latest?<p className="context-empty">Analizando cada mensaje. El primer resumen contextual aparecerá en la cuarta respuesta.</p>:<>
-        <div className="context-bars">{latest.distribution.map(item=><div className="bar-row" key={item.label}><div><span>{item.label}</span><b>{Math.round(item.probability*100)}%</b></div><div className="track"><i style={{width:`${item.probability*100}%`}} /></div></div>)}</div>
+        <div className="context-bars">{latest.distribution.map(item=><div className="bar-row" key={item.label}><div><span>{item.label}</span><b>{Math.round(item.probability*100)}%</b></div><div className="track"><i style={{width:`${item.probability*100}%`,background:labelCopy[item.label]?.color??'#2d8065'}} /></div></div>)}</div>
         <div className="model-tag">{latest.final?'Clasificación final':'Resumen contextual'} · Modelo: {latest.model} · {latest.contextMessages} respuesta{latest.contextMessages===1?'':'s'}</div>
         {latest.contextualSummary&&<details className="translation"><summary>Ver resumen analizado</summary><p>{latest.contextualSummary}</p></details>}
       </>}
@@ -84,6 +85,7 @@ export default function App(){
   const [text,setText]=useState('');
   const [language,setLanguage]=useState<'es'|'en'>('es');
   const [loading,setLoading]=useState(false);
+  const [compare,setCompare]=useState<CompareItem[]|null>(null);
   const [finalResult,setFinalResult]=useState<Result|null>(null);
   const [messages,setMessages]=useState<Message[]>([{id:1,role:'assistant',text:'Hola. Conversemos sobre cómo te has sentido. Si escribes en español, traduciré el texto al inglés antes de analizar la tendencia contextual, sin emitir diagnósticos.'}]);
   const bottom=useRef<HTMLDivElement>(null);
@@ -96,11 +98,14 @@ export default function App(){
     e?.preventDefault(); const value=text.trim(); if(!value||loading)return;
     setFinalResult(null);
     setMessages(m=>[...m,{id:Date.now(),role:'user',text:value}]); setText(''); setLoading(true);
+    const history=messages.slice(1).map(message=>({role:message.role,text:message.text,frame:message.frame})).slice(-29);
+    setCompare(null);
+    fetch('/api/compare',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:value,history,language})})
+      .then(r=>r.ok?r.json():null).then(data=>{if(data?.results)setCompare(data.results);}).catch(()=>{});
     try{
-      const history=messages.slice(1).map(message=>({role:message.role,text:message.text})).slice(-29);
       const response=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:value,model,history,language})});
       const data=await response.json(); if(!response.ok)throw new Error(data.detail||'No se pudo analizar el texto.');
-      setMessages(m=>[...m,{id:Date.now()+1,role:'assistant',text:data.assistantReply||'Este es el resultado del análisis:',result:data}]);
+      setMessages(m=>[...m,{id:Date.now()+1,role:'assistant',text:data.assistantReply||'Este es el resultado del análisis:',result:data,frame:data.answerFrame}]);
     }catch(error){setMessages(m=>[...m,{id:Date.now()+1,role:'assistant',text:error instanceof Error?error.message:'Error inesperado.',error:true}]);}
     finally{setLoading(false)}
   }
@@ -109,10 +114,10 @@ export default function App(){
     if(loading||!messages.some(message=>message.role==='user'))return;
     setLoading(true);
     try{
-      const history=messages.slice(1).map(message=>({role:message.role,text:message.text})).slice(-30);
+      const history=messages.slice(1).map(message=>({role:message.role,text:message.text,frame:message.frame})).slice(-30);
       const response=await fetch('/api/finalize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model,history,language})});
       const data=await response.json(); if(!response.ok)throw new Error(data.detail||'No se pudo finalizar la conversación.');
-      setFinalResult(data); setMessages(m=>m.slice(0,1));
+      setFinalResult(data); setMessages(m=>m.slice(0,1)); setCompare(null);
     }catch(error){setMessages(m=>[...m,{id:Date.now(),role:'assistant',text:error instanceof Error?error.message:'Error inesperado.',error:true}]);}
     finally{setLoading(false)}
   }
@@ -121,11 +126,31 @@ export default function App(){
     <header><a className="brand"><span>m</span><div><b>MHTC</b><small>MENTAL HEALTH TEXT CLASSIFIER</small></div></a><div className="status"><i/> Sistema experimental</div></header>
     <section className="hero"><div className="eyebrow">TECNOLOGÍA CON PROPÓSITO</div><h1>Un espacio para poner<br/><em>en palabras</em> lo que sientes.</h1><p>Analizamos texto con modelos de NLP para identificar señales tempranas y orientar hacia apoyo oportuno.</p></section>
     <section className="workspace">
-      <aside><div className="aside-title">Modelo de análisis</div>{models.map(item=><button key={item.id} disabled={!item.available} onClick={()=>setModel(item.id)} className={model===item.id?'selected':''}><span>{item.name}</span><small>{item.available?'Disponible':'Ejecuta el entrenamiento'}</small></button>)}
+      <aside><div className="aside-title">Modelo de análisis · último mensaje</div>{models.map(item=>{
+        const verdict=compare?.find(entry=>entry.model===item.id);
+        const color=verdict?.label?(labelCopy[verdict.label]?.color??'#8a8a8a'):undefined;
+        return <button key={item.id} disabled={!item.available} onClick={()=>setModel(item.id)} className={model===item.id?'selected':''}>
+          <span>{item.name}{model===item.id&&<b className="aside-active">activo</b>}</span>
+          {verdict?.available?<>
+            <small className="aside-verdict" style={{color}}>{verdict.label} · {Math.round((verdict.confidence??0)*100)}%</small>
+            <span className="aside-stack">{verdict.distribution!.map(part=><i key={part.label} style={{width:`${part.probability*100}%`,background:labelCopy[part.label]?.color}}/>)}</span>
+          </>:<small>{item.available?'Disponible':'Ejecuta el entrenamiento'}</small>}
+        </button>;
+      })}
         <div className="notice"><b>Importante</b><p>Esta herramienta es académica. No diagnostica ni reemplaza la evaluación de un profesional. La conversación se conserva solo durante la sesión; Gemini la usa para conversar y crear resúmenes factuales sin asignar categorías.</p></div>
       </aside>
       <div className="chat">
-        <div className="chat-head"><div><span className="avatar">✦</span><div><b>Asistente MHTC</b><small>Análisis contextual · español o inglés</small></div></div><button disabled={loading||!messages.some(message=>message.role==='user')} onClick={finalizeConversation}>Finalizar y limpiar</button></div>
+        <div className="chat-head"><div><span className="avatar">✦</span><div><b>Asistente MHTC</b><small>Análisis contextual · español o inglés</small></div></div>
+          <div className="head-actions">
+            <label className="model-toggle" title="Modelo que conduce la conversación">
+              <span>Modelo</span>
+              <select value={model} onChange={e=>setModel(e.target.value)}>
+                {models.map(item=><option key={item.id} value={item.id} disabled={!item.available}>{item.name}{item.available?'':' (no disponible)'}</option>)}
+              </select>
+            </label>
+            <button disabled={loading||!messages.some(message=>message.role==='user')} onClick={finalizeConversation}>Finalizar y limpiar</button>
+          </div>
+        </div>
         <ContextPanel results={analysisResults}/>
         <div className="messages">{messages.map(message=><div key={message.id} className={`message ${message.role}`}><div className="bubble">{message.text}</div></div>)}
           {loading&&<div className="message assistant"><div className="bubble typing"><i/><i/><i/> Analizando patrones...</div></div>}
