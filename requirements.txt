@@ -1,0 +1,28 @@
+# Dependencias principales
+numpy>=1.24
+pandas>=1.5
+scikit-learn>=1.2
+joblib>=1.2
+lightgbm>=4.0
+gensim>=4.3
+
+# Transformers / RoBERTa
+torch>=2.0
+transformers>=4.30
+huggingface_hub>=0.16
+
+# Explicabilidad
+shap>=0.42
+lime>=0.2
+
+# NLP
+nltk>=3.8
+
+# Notebooks
+jupyter>=1.0
+nbconvert>=7.0
+ipykernel>=6.0
+
+# Visualización
+matplotlib>=3.7
+seaborn>=0.12

@@ -163,9 +163,19 @@ def run(text: str, models: dict) -> None:
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main() -> None:
-    print("Cargando modelos...", end=" ", flush=True)
+    ALL_MODELS = ["LightGBM", "Logistic Regression", "Word2Vec + LR", "RoBERTa"]
+    print("Cargando modelos...")
     models = load_models()
-    print(f"OK ({len(models)} modelos: {', '.join(models)})\n")
+    loaded  = list(models.keys())
+    missing = [m for m in ALL_MODELS if m not in loaded]
+    print(f"  Cargados ({len(loaded)}): {', '.join(loaded)}")
+    if missing:
+        print(f"  No disponibles ({len(missing)}): {', '.join(missing)}")
+        if "RoBERTa" in missing:
+            print("  -> Para RoBERTa: ejecuta 'python setup.py' primero")
+        if any(m in missing for m in ["LightGBM", "Logistic Regression", "SVM"]):
+            print("  -> Para modelos clasicos: instala dependencias con 'pip install -r requirements.txt'")
+    print()
 
     if len(sys.argv) > 1:
         run(" ".join(sys.argv[1:]), models)
