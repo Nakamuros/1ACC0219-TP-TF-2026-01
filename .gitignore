@@ -15,3 +15,6 @@ roberta_training.log
 # modelos transformer grandes (>100MB, no aceptados por GitHub)
 modelo_mental_roberta*/*/model.safetensors
 modelo_mental_roberta*/*/pytorch_model.bin
+modelo_traduccion_es_en/pytorch_model.bin
+modelo_traduccion_es_en/model.safetensors
+.kombai/
