@@ -44,12 +44,9 @@ model     = AutoModelForSequenceClassification.from_pretrained("treborDev/mhtc-r
 tokenizer = AutoTokenizer.from_pretrained("treborDev/mhtc-roberta")
 ```
 
-O para usarlo con `predict.py`, descargarlo a la carpeta local:
+O correr el script de setup incluido en el repo (recomendado tras clonar):
 ```bash
-python -c "
-from huggingface_hub import snapshot_download
-snapshot_download('treborDev/mhtc-roberta', local_dir='modelo_mental_roberta_v2/best')
-"
+python setup.py
 ```
 
 ---
