@@ -17,8 +17,8 @@ const suggestions = [
   'Siento que las cosas han sido muy difíciles últimamente.',
 ];
 const labelCopy: Record<string,{title:string;body:string;color:string}> = {
-  Normal:{title:'No se detectó una señal predominante',body:'El patrón lingüístico se acerca más a la clase Normal.',color:'#2d8065'},
-  Depression:{title:'Señales compatibles con depresión',body:'El texto contiene patrones que el modelo asocia con la clase Depression.',color:'#c27a35'},
+  Normal:{title:'No se detectó una señal predominante',body:'El patrón lingüístico se acerca más a la clase Normal.',color:'#6aaa8c'},
+  Depression:{title:'Señales compatibles con depresión',body:'El texto contiene patrones que el modelo asocia con la clase Depression.',color:'#c4884a'},
   Suicidal:{title:'Señales de riesgo elevado',body:'El texto contiene patrones asociados con riesgo suicida. Si esto refleja cómo te sientes, busca ayuda humana inmediata.',color:'#bf554d'},
 };
 
@@ -42,7 +42,7 @@ function TrendChart({results}:{results:Result[]}) {
   const recent=results.slice(-10);
   if(!recent.length)return null;
   const labels=['Normal','Depression','Suicidal'];
-  const colors:Record<string,string>={Normal:'#2d8065',Depression:'#c27a35',Suicidal:'#bf554d'};
+  const colors:Record<string,string>={Normal:'#6aaa8c',Depression:'#c4884a',Suicidal:'#bf554d'};
   const width=520,height=118,pad=10;
   const point=(label:string,index:number)=>{
     const value=recent[index].distribution.find(item=>item.label===label)?.probability??0;
