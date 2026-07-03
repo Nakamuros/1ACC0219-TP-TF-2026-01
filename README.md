@@ -6,6 +6,14 @@
 
 ---
 
+## Interfaz web
+
+![Vista principal de la aplicación MHTC](docs/ui-preview.png)
+
+La app utiliza un diseño **Claymorphism + Neumorphism** con paleta cálida (Old Lace / Dry Sage / Rosy Copper). Incluye chat conversacional, panel de análisis con barra de distribución, gráfico de tendencia y recursos de emergencia.
+
+---
+
 ## Inicio rápido
 
 ```bash

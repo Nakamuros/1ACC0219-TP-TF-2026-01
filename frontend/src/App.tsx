@@ -3,7 +3,7 @@ import { gsap } from 'gsap';
 import {
   IconBrain, IconChartBar,
   IconSend, IconRefresh, IconAlertTriangle,
-  IconTrendingUp, IconHeartHandshake,
+  IconTrendingUp, IconHeartHandshake, IconLoader2,
 } from '@tabler/icons-react';
 import './styles.css';
 
@@ -19,10 +19,10 @@ type Result = {
 type Msg = { id: number; role: 'user' | 'assistant'; text: string; result?: Result; err?: boolean };
 
 const FALLBACK_MODELS: Model[] = [
-  { id: 'lightgbm',      name: 'LightGBM',           available: true  },
-  { id: 'logistic',      name: 'Reg. Logística',      available: false },
-  { id: 'svm',           name: 'SVM Lineal',          available: false },
-  { id: 'mental_roberta',name: 'MentalRoBERTa',       available: false },
+  { id: 'lightgbm',       name: 'LightGBM',        available: true  },
+  { id: 'logistic',       name: 'Reg. Logística',   available: true  },
+  { id: 'svm',            name: 'SVM Lineal',       available: true  },
+  { id: 'mental_roberta', name: 'MentalRoBERTa',    available: true  },
 ];
 
 const SUGGESTIONS = [
@@ -36,7 +36,7 @@ const SEG_CLASS:  Record<string, string> = { Normal: 'n', Depression: 'd', Suici
 
 /* ── Spline helper ── */
 function spline(pts: {x:number;y:number}[]): string {
-  if (pts.length < 2) return pts.map(p=>`${p.x},${p.y}`).join(' ');
+  if (pts.length < 2) return `M ${pts[0]?.x ?? 0} ${pts[0]?.y ?? 0}`;
   let d = `M ${pts[0].x} ${pts[0].y}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const cp1x = pts[i].x   + (pts[i+1].x - (pts[i-1]?.x ?? pts[i].x)) / 5;
@@ -50,7 +50,6 @@ function spline(pts: {x:number;y:number}[]): string {
 
 /* ── ResultCard ── */
 function ResultCard({ result }: { result: Result }) {
-  const [showTrans, setShowTrans] = useState(false);
   return (
     <div className="res">
       <div className="res-lbl">{result.label}</div>
@@ -64,7 +63,7 @@ function ResultCard({ result }: { result: Result }) {
       </div>
       <div className="res-foot">Modelo: {result.model} · Confianza: {Math.round(result.confidence * 100)}%</div>
       {result.sourceLanguage === 'es' && (
-        <details className="res-trans" open={showTrans} onToggle={e => setShowTrans((e.target as HTMLDetailsElement).open)}>
+        <details className="res-trans">
           <summary>Ver traducción analizada</summary>
           <p>{result.translatedText}</p>
         </details>
@@ -126,7 +125,7 @@ function AnalysisWidget({ result }: { result: Result | null }) {
   return (
     <>
       <div className="w-label" style={{ color: SEG_COLORS[result.label] ?? '#4a4035' }}>{result.label}</div>
-      <div className="w-conf">Confianza: {Math.round(result.confidence * 100)}% · Modelo: {result.model}</div>
+      <div className="w-conf">Confianza: {Math.round(result.confidence * 100)}% · {result.model}</div>
       <div className="prop-bar">
         {dist.map(d => (
           <div key={d.label} className={`seg ${SEG_CLASS[d.label]}`}
@@ -145,28 +144,41 @@ function AnalysisWidget({ result }: { result: Result | null }) {
   );
 }
 
+/* ── Loading overlay for first Spanish message ── */
+function TranslatingBanner() {
+  return (
+    <div className="translating-banner">
+      <IconLoader2 size={14} className="spin" />
+      Cargando modelo de traducción (primera vez)…
+    </div>
+  );
+}
+
 /* ── Main App ── */
 export default function App() {
-  const [models,   setModels]   = useState<Model[]>(FALLBACK_MODELS);
-  const [model,    setModel]    = useState('lightgbm');
-  const [lang,     setLang]     = useState<'es'|'en'>('es');
-  const [text,     setText]     = useState('');
-  const [loading,  setLoading]  = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([
+  const [models,      setModels]      = useState<Model[]>(FALLBACK_MODELS);
+  const [model,       setModel]       = useState('lightgbm');
+  const [lang,        setLang]        = useState<'es'|'en'>('es');
+  const [text,        setText]        = useState('');
+  const [loading,     setLoading]     = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const [esUsed,      setEsUsed]      = useState(false);
+  const [messages,    setMessages]    = useState<Msg[]>([
     { id: 1, role: 'assistant', text: 'Hola. Conversemos sobre cómo te has sentido. Puedes escribir en español o inglés.' },
   ]);
 
-  const bottom = useRef<HTMLDivElement>(null);
-  const allResults = messages.flatMap(m => m.result ? [m.result] : []);
+  const bottom  = useRef<HTMLDivElement>(null);
+  const popRefs = useRef<HTMLDivElement[]>([]);
+
+  const allResults   = messages.flatMap(m => m.result ? [m.result] : []);
   const latestResult = allResults.at(-1) ?? null;
+  const showAlert    = latestResult?.immediateRisk || latestResult?.label === 'Suicidal';
 
   useEffect(() => { fetch('/api/models').then(r => r.json()).then(setModels).catch(() => {}); }, []);
   useEffect(() => { bottom.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
 
-  /* GSAP pop on new message */
-  const popRef = useRef<HTMLDivElement[]>([]);
   useEffect(() => {
-    const el = popRef.current.at(-1);
+    const el = popRefs.current.at(-1);
     if (el) gsap.from(el, { scale: 0.82, y: 8, opacity: 0, duration: 0.38, ease: 'back.out(1.7)' });
   }, [messages.length]);
 
@@ -174,10 +186,12 @@ export default function App() {
     e?.preventDefault();
     const val = text.trim();
     if (!val || loading) return;
-    const userMsg: Msg = { id: Date.now(), role: 'user', text: val };
-    setMessages(m => [...m, userMsg]);
+    setMessages(m => [...m, { id: Date.now(), role: 'user', text: val }]);
     setText('');
     setLoading(true);
+    /* show translation banner on first Spanish request */
+    const needsTranslation = lang === 'es';
+    if (needsTranslation && !esUsed) { setTranslating(true); setEsUsed(true); }
     try {
       const history = messages.slice(1).map(m => ({ role: m.role, text: m.text })).slice(-29);
       const res  = await fetch('/api/analyze', {
@@ -192,6 +206,7 @@ export default function App() {
       setMessages(m => [...m, { id: Date.now() + 1, role: 'assistant', text: err instanceof Error ? err.message : 'Error inesperado.', err: true }]);
     } finally {
       setLoading(false);
+      setTranslating(false);
     }
   }
 
@@ -218,8 +233,6 @@ export default function App() {
     }
   }
 
-  const showAlert = latestResult?.immediateRisk || latestResult?.label === 'Suicidal';
-
   return (
     <div className="app">
 
@@ -232,7 +245,6 @@ export default function App() {
 
       {/* ── Center ── */}
       <main className="center">
-        {/* header */}
         <div className="chat-hdr">
           <div className="chat-hdr-l">
             <div className="chat-avatar"><IconBrain size={22} /></div>
@@ -241,15 +253,13 @@ export default function App() {
               <div className="chat-hdr-sub">Análisis contextual · español o inglés</div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="hdr-btn" onClick={finalize}
-              disabled={loading || !messages.some(m => m.role === 'user')}>
-              <IconRefresh size={14} /> Finalizar
-            </button>
-          </div>
+          <button className="hdr-btn" onClick={finalize}
+            disabled={loading || !messages.some(m => m.role === 'user')}>
+            <IconRefresh size={14} /> Finalizar
+          </button>
         </div>
 
-        {/* model chips */}
+        {/* model chips — only available models */}
         <div className="chips">
           {models.filter(m => m.available).map(m => (
             <button key={m.id} className={`chip${model === m.id ? ' on' : ''}`}
@@ -259,11 +269,12 @@ export default function App() {
           ))}
         </div>
 
-        {/* messages */}
+        {translating && <TranslatingBanner />}
+
         <div className="msgs">
           {messages.map((m, i) => (
             <div key={m.id} className={`msg ${m.role}${m.err ? ' err' : ''}`}
-              ref={el => { if (el) popRef.current[i] = el; }}>
+              ref={el => { if (el) popRefs.current[i] = el; }}>
               <div className="bbl">
                 {m.text}
                 {m.result && <ResultCard result={m.result} />}
@@ -289,7 +300,6 @@ export default function App() {
           <div ref={bottom} />
         </div>
 
-        {/* input */}
         <div className="inp-area">
           <form onSubmit={submit}>
             <div className="inp-shell">
@@ -320,19 +330,16 @@ export default function App() {
 
       {/* ── Right Panel ── */}
       <aside className="panel">
-        {/* Analysis */}
         <div className="widget">
           <div className="w-title"><IconChartBar size={15} /> Análisis actual</div>
           <AnalysisWidget result={latestResult} />
         </div>
 
-        {/* Trend */}
         <div className="widget">
           <div className="w-title"><IconTrendingUp size={15} /> Tendencia</div>
           <TrendWidget results={allResults} />
         </div>
 
-        {/* Alert */}
         <div className="widget alert-widget">
           <div className="w-title"><IconHeartHandshake size={15} /> Recursos de apoyo</div>
           {showAlert && (

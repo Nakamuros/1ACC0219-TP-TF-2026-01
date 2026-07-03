@@ -329,6 +329,20 @@ html, body, #root {
 /* footer strip inside center */
 .disclaimer { padding: 6px 22px 10px; font-size: 9.5px; color: var(--text-s); opacity: .55; flex-shrink: 0; }
 
+/* ── Translating banner ── */
+.translating-banner {
+  display: flex; align-items: center; gap: 7px;
+  margin: 0 12px 8px;
+  padding: 8px 14px;
+  background: var(--bg);
+  border-radius: var(--rs);
+  box-shadow: var(--inset);
+  font-size: 12px; color: var(--text-s);
+  flex-shrink: 0;
+}
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ── Pop animation ── */
 @keyframes pop {
   0%   { opacity:0; transform:scale(.8) translateY(8px); }
@@ -338,3 +352,43 @@ html, body, #root {
 .pop { animation: pop .36s cubic-bezier(.34,1.56,.64,1) both; }
 
 * { scrollbar-width: thin; scrollbar-color: var(--sdk) transparent; }
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+  .rail {
+    flex-direction: row;
+    border-radius: var(--rl);
+    padding: 12px 16px;
+    justify-content: flex-start;
+  }
+  .rail-logo { margin-bottom: 0; margin-right: 8px; }
+  .rail-sep  { display: none; }
+  .rail-spacer { display: none; }
+  .center {
+    height: 75vh;
+    min-height: 500px;
+  }
+  .panel {
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow-y: visible;
+  }
+  .widget { flex: 1 1 260px; }
+}
+
+@media (max-width: 600px) {
+  .app { padding: 10px; gap: 8px; }
+  .rail { display: none; }
+  .center { border-radius: var(--rl); height: 80vh; }
+  .panel { flex-direction: column; }
+  .widget { flex: unset; }
+  .chips { gap: 4px; }
+  .chip  { font-size: 10px; padding: 5px 10px; }
+}
