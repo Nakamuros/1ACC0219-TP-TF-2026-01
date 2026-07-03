@@ -6,6 +6,22 @@
 
 ---
 
+## Inicio rápido
+
+```bash
+git clone https://github.com/Nakamuros/1ACC0219-TP-TF-2026-01.git
+cd 1ACC0219-TP-TF-2026-01
+python setup.py
+```
+
+Eso es todo — instala dependencias, descarga recursos NLTK y el modelo RoBERTa (~480MB). Después podés usar:
+
+```bash
+python predict.py "I feel hopeless every day"
+```
+
+---
+
 ## Objetivo
 
 Desarrollar un modelo de Machine Learning basado en NLP para clasificar textos no estructurados extraídos de redes sociales (Twitter y Reddit) en tres estados de salud mental: **Normal**, **Depresión** y **Riesgo Suicida**, permitiendo una detección preventiva eficiente.
@@ -44,10 +60,7 @@ model     = AutoModelForSequenceClassification.from_pretrained("treborDev/mhtc-r
 tokenizer = AutoTokenizer.from_pretrained("treborDev/mhtc-roberta")
 ```
 
-O correr el script de setup incluido en el repo (recomendado tras clonar):
-```bash
-python setup.py
-```
+El script `setup.py` lo descarga automáticamente junto con las dependencias.
 
 ---
 
