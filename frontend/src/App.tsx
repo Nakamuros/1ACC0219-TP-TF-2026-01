@@ -66,7 +66,7 @@ function ContextPanel({results}:{results:Result[]}){
   const latestMessage=results.at(-1);
   return <section className="context-dock" aria-label="Evaluación contextual fija">
     <div className="context-summary">
-      <div className="context-heading"><div><b>Evaluación contextual</b><small>Se actualiza cada 4 respuestas y al finalizar</small></div>{latest&&<span>{latest.label}</span>}</div>
+      <div className="context-heading"><div><b>Evaluación contextual</b><small>Se actualiza en cada mensaje (por ideas)</small></div>{latest&&<span>{latest.label}</span>}</div>
       {!latest?<p className="context-empty">Analizando cada mensaje. El primer resumen contextual aparecerá en la cuarta respuesta.</p>:<>
         <div className="context-bars">{latest.distribution.map(item=><div className="bar-row" key={item.label}><div><span>{item.label}</span><b>{Math.round(item.probability*100)}%</b></div><div className="track"><i style={{width:`${item.probability*100}%`,background:labelCopy[item.label]?.color??'#2d8065'}} /></div></div>)}</div>
         <div className="model-tag">{latest.final?'Clasificación final':'Resumen contextual'} · Modelo: {latest.model} · {latest.contextMessages} respuesta{latest.contextMessages===1?'':'s'}</div>
@@ -137,7 +137,7 @@ export default function App(){
           </>:<small>{item.available?'Disponible':'Ejecuta el entrenamiento'}</small>}
         </button>;
       })}
-        <div className="notice"><b>Importante</b><p>Esta herramienta es académica. No diagnostica ni reemplaza la evaluación de un profesional. La conversación se conserva solo durante la sesión; Gemini la usa para conversar y crear resúmenes factuales sin asignar categorías.</p></div>
+        <div className="notice"><b>Importante</b><p>Esta herramienta es académica. No diagnostica ni reemplaza la evaluación de un profesional. La conversación se conserva solo durante la sesión; Gemini solo la conduce y formula preguntas, sin clasificar ni diagnosticar.</p></div>
       </aside>
       <div className="chat">
         <div className="chat-head"><div><span className="avatar">✦</span><div><b>Asistente MHTC</b><small>Análisis contextual · español o inglés</small></div></div>

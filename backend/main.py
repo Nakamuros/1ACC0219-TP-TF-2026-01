@@ -140,14 +140,20 @@ def generate_conversation_reply(
             "to be a professional, prescribe treatment, or replace human help. Do not request names, "
             "addresses, phone numbers, emails or other identifying data. Keep assistant_reply under 60 words. "
             'Return ONLY valid JSON: {"assistant_reply":"...","answer_frame":"..."}. '
-            "answer_frame is a NEUTRAL first-person sentence IN THE SAME LANGUAGE as assistant_reply, with "
-            "EXACTLY ONE '___' slot that would turn a SHORT answer to your question into a standalone statement "
-            "(asking 'since when?' -> 'I have felt this way for ___'; 'desde cuándo?' -> 'Me he sentido así "
-            "desde ___'). Keep it neutral, assume nothing about how the person feels, and never put clinical "
-            "labels in it. If your question does not expect a short answer, set answer_frame to an empty string."
+            "answer_frame is ALWAYS written in ENGLISH (it is used internally and never shown to the user), "
+            "a NEUTRAL first-person sentence with EXACTLY ONE '___' slot that turns a SHORT answer to your "
+            "question into a standalone statement. Phrase durations as ONGOING with 'for' and present perfect, "
+            "never as a past point (asking about duration -> 'I have been feeling this way for ___', NOT "
+            "'I felt this way ___ ago'; about support -> 'I have support: ___'). Even when assistant_reply "
+            "is in Spanish, answer_frame stays in English (reply '¿cómo te afecta la falta de sueño?' -> "
+            "answer_frame 'The lack of sleep affects me: ___'). Keep it neutral, assume "
+            "nothing about how the person feels, and never put clinical labels in it. If your question does "
+            "not expect a short answer, set answer_frame to an empty string."
         )}]},
         "contents": [{"role": "user", "parts": [{"text": (
-            f"Write assistant_reply in {target_language}.\nQuoted conversation:\n{conversation}"
+            f"Write assistant_reply in {target_language}, but write answer_frame in ENGLISH "
+            "regardless of the conversation language (it is internal, never shown to the user).\n"
+            f"Quoted conversation:\n{conversation}"
         )}]}],
         "generationConfig": {
             "temperature": 0.4,
@@ -337,10 +343,9 @@ def analyze(request: AnalysisRequest):
         if threshold is None:
             return int(np.argmax(values))
         return 2 if values[2] >= threshold else int(np.argmax(values[:2]))
-    # Cada cuarta respuesta del usuario reconstruye la conversación en 1a persona.
+    # El contexto se evalúa por IDEAS (no se concatena toda la conversación).
     # Cada mensaje se sigue analizando por separado para la seguridad inmediata.
     user_turn_count = len(prior_user_texts) + 1
-    contextual_updated = request.force_context or user_turn_count % 4 == 0
     turns = [*request.history, ConversationTurn(role="user", text=request.text)]
     recent = prior_translations[-2:]
     recent_risk = False
@@ -354,41 +359,68 @@ def analyze(request: AnalysisRequest):
     assistant_reply, reply_source, answer_frame = generate_conversation_reply(
         turns, request.language, LABELS[decision_for(current_probabilities)], immediate_risk,
     )
-    # El texto que se clasifica son las PROPIAS palabras del usuario concatenadas.
-    # Para respuestas cortas (elípticas), se rellena mecánicamente el molde neutro
-    # que Gemini adjuntó a la pregunta previa: Gemini nunca ve la respuesta al crearlo.
-    if contextual_updated:
-        turn_frames, pending_frame = [], None
-        for turn in request.history:
-            if turn.role == "assistant":
-                pending_frame = turn.frame
-            else:
-                turn_frames.append(pending_frame)
-                pending_frame = None
-        turn_frames.append(pending_frame)  # molde para el mensaje actual
 
-        def assemble(raw_text: str, frame: str | None) -> str:
-            raw_text = raw_text.strip(" .")
-            # Solo se rellena el molde en respuestas realmente cortas (elípticas).
-            if frame and "___" in frame and len(raw_text.split()) <= 3:
-                return frame.replace("___", raw_text).strip(" .")
-            return raw_text
+    # --- Evaluación contextual por IDEAS ---------------------------------
+    # Emparejar cada turno del usuario con el molde que Gemini adjuntó a la
+    # pregunta previa (solo los turnos del asistente llevan molde).
+    turn_frames, pending_frame = [], None
+    for turn in request.history:
+        if turn.role == "assistant":
+            pending_frame = turn.frame
+        else:
+            turn_frames.append(pending_frame)
+            pending_frame = None
+    turn_frames.append(pending_frame)  # molde para el mensaje actual
 
-        # Se ensambla en el idioma original (moldes en ese idioma) y se traduce
-        # la narrativa completa UNA sola vez, para no mezclar idiomas.
-        source_narrative = ". ".join(
-            assemble(raw, frame)
-            for raw, frame in zip(source_user_texts, turn_frames)
-            if raw.strip()
-        )
-        contextual_narrative = (
-            translate_to_english([source_narrative])[0]
-            if request.language == "es" else source_narrative
-        )
-        probabilities = classify(request.model, contextual_narrative)
-    else:
-        contextual_narrative = None
-        probabilities = current_probabilities.copy()
+    def is_elliptical(raw_text: str, frame: str | None) -> bool:
+        return bool(frame and "___" in frame and len(raw_text.strip(" .").split()) <= 3)
+
+    # El molde ya viene en INGLÉS (lo escribe Gemini) y el modelo clasifica en
+    # inglés: se rellena el hueco con la respuesta corta YA TRADUCIDA
+    # (model_texts[i]), sin traducir la frase completa. Así se evita que la
+    # traducción de oraciones convierta "hace 4 meses" en "4 months ago".
+    def assemble(index: int) -> str:
+        answer_en = model_texts[index].strip(" .")
+        frame = turn_frames[index]
+        if is_elliptical(source_user_texts[index], frame):
+            return frame.replace("___", answer_en).strip()
+        return answer_en
+
+    # Agrupar los turnos en IDEAS: una respuesta elíptica (que rellena un molde)
+    # CONTINÚA la idea actual; un mensaje sustantivo abre una idea nueva. El
+    # fragmento corto ("cuatro meses") nunca se evalúa suelto: se absorbe en su
+    # idea ("I have been feeling this way for four months"), sin diluir.
+    ideas: list[list[str]] = []
+    for index, raw in enumerate(source_user_texts):
+        if not raw.strip():
+            continue
+        piece = assemble(index)
+        if is_elliptical(raw, turn_frames[index]) and ideas:
+            ideas[-1].append(piece)
+        else:
+            ideas.append([piece])
+
+    def compact(parts: list[str]) -> str:
+        # Cada idea es UNA frase compacta; se descartan los fragmentos que un
+        # molde posterior ya reformula (evita duplicar y el sesgo de longitud).
+        kept: list[str] = []
+        for part in parts:
+            kept = [k for k in kept if k.lower().strip(" .") not in part.lower()]
+            kept.append(part)
+        return ". ".join(kept)
+
+    idea_texts = [compact(parts) for parts in ideas] or [assemble(len(source_user_texts) - 1)]
+    idea_probs = np.stack([classify(request.model, text) for text in idea_texts])
+    idea_probs = idea_probs / idea_probs.sum(axis=1, keepdims=True)
+
+    # Agregación ponderada por RECIENCIA: las ideas recientes pesan más, así el
+    # contexto puede des-escalar (o escalar) y nunca se congela en el peor caso.
+    decay = 0.6
+    weights = np.array([decay ** (len(idea_probs) - 1 - i) for i in range(len(idea_probs))])
+    weights = weights / weights.sum()
+    probabilities = (weights[:, None] * idea_probs).sum(axis=0)
+    contextual_updated = True
+    contextual_narrative = " / ".join(idea_texts)
     probabilities = probabilities / probabilities.sum()
     prediction = decision_for(probabilities)
 
