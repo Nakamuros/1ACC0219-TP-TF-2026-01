@@ -33,15 +33,17 @@ Desarrollar un modelo de Machine Learning basado en NLP para clasificar textos n
 
 ---
 
-## Modelos planificados e implementados
+## Modelos implementados — Resultados en Test Set
 
-| # | Modelo | Vectorización | Estado |
-|---|---|---|---|
-| 1 | Regresión Logística | TF-IDF | Implementado |
-| 2 | SVM (kernel lineal) | TF-IDF | Implementado |
-| 3 | LightGBM | TF-IDF | Implementado |
-| 4 | Word2Vec + Regresión Logística | Embeddings propios | Implementado |
-| 5 | mental-roberta-base | Transformer | Implementado |
+| # | Modelo | Vectorización | Accuracy | Macro F1 | Macro F2 | F2 Suicidal |
+|---|--------|--------------|----------|----------|----------|-------------|
+| 1 | SVM Lineal | TF-IDF (12k, bigrams) | 0.7795 | 0.7654 | 0.7669 | 0.6482 |
+| 2 | Word2Vec + Regresión Logística | Word2Vec (200d, skip-gram) | 0.7279 | 0.7227 | 0.7237 | 0.6721 |
+| 3 | Regresión Logística | TF-IDF (12k, bigrams) | 0.7946 | 0.7835 | 0.7859 | 0.7054 |
+| 4 | LightGBM + Custom Weights | TF-IDF (12k, bigrams) | 0.7765 | 0.7700 | 0.7714 | 0.7387 |
+| 5 | **RoBERTa (fine-tuning completo)** | Transformer (roberta-base, 256 tokens) | **0.8528** | **0.8439** | **0.8475** | **0.7802** |
+
+> El F2-Score prioriza el recall sobre la precisión (β=2), penalizando más los falsos negativos en la clase Suicidal — métrica clínicamente relevante para detección preventiva.
 
 Resultados de prueba de los modelos adicionales:
 

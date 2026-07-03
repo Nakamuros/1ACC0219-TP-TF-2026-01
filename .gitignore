@@ -2,9 +2,16 @@
 .venv-ml/
 __pycache__/
 *.py[cod]
+*.pyc
 frontend/node_modules/
 frontend/dist/
 .vite/
 .env
 .env.*
 !.env.example
+*.pdf
+roberta_training.log
+.DS_Store
+# modelos transformer grandes (>100MB, no aceptados por GitHub)
+modelo_mental_roberta*/*/model.safetensors
+modelo_mental_roberta*/*/pytorch_model.bin

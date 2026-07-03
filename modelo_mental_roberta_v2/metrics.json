@@ -1,0 +1,44 @@
+{
+  "args": {
+    "model": "roberta-base",
+    "output": "modelo_mental_roberta_v2",
+    "epochs": 4,
+    "batch_size": 16,
+    "max_length": 256,
+    "learning_rate": 2e-05,
+    "warmup_ratio": 0.1,
+    "max_grad_norm": 1.0,
+    "patience": 2,
+    "max_train_samples": null,
+    "local_files_only": false,
+    "freeze_layers": 6
+  },
+  "device": "mps",
+  "training_history": [
+    {
+      "epoch": 1,
+      "accuracy": 0.8595110515740121,
+      "macro_f1": 0.8508439751261735
+    },
+    {
+      "epoch": 2,
+      "accuracy": 0.8608506363027462,
+      "macro_f1": 0.8539547739644937
+    },
+    {
+      "epoch": 3,
+      "accuracy": 0.8645344943067649,
+      "macro_f1": 0.856680080157449
+    },
+    {
+      "epoch": 4,
+      "accuracy": 0.8625251172136638,
+      "macro_f1": 0.8552901031097351
+    }
+  ],
+  "test": {
+    "accuracy": 0.8528377699648418,
+    "macro_f1": 0.8439415928202059
+  },
+  "test_report": "              precision    recall  f1-score   support\n\n      Normal       0.97      0.99      0.98      2180\n  Depression       0.85      0.76      0.80      2221\n    Suicidal       0.71      0.80      0.75      1572\n\n    accuracy                           0.85      5973\n   macro avg       0.84      0.85      0.84      5973\nweighted avg       0.86      0.85      0.85      5973\n"
+}
