@@ -33,6 +33,27 @@ Desarrollar un modelo de Machine Learning basado en NLP para clasificar textos n
 
 ---
 
+## Modelo RoBERTa — Descarga
+
+El modelo fine-tuned está disponible en HuggingFace Hub (los pesos ~480MB no se incluyen en el repo):
+
+```python
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+model     = AutoModelForSequenceClassification.from_pretrained("treborDev/mhtc-roberta")
+tokenizer = AutoTokenizer.from_pretrained("treborDev/mhtc-roberta")
+```
+
+O para usarlo con `predict.py`, descargarlo a la carpeta local:
+```bash
+python -c "
+from huggingface_hub import snapshot_download
+snapshot_download('treborDev/mhtc-roberta', local_dir='modelo_mental_roberta_v2/best')
+"
+```
+
+---
+
 ## Modelos implementados — Resultados en Test Set
 
 | # | Modelo | Vectorización | Accuracy | Macro F1 | Macro F2 | F2 Suicidal |
