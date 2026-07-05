@@ -1,2 +1,0 @@
-modelos/modelo_mental_roberta/*.safetensors filter=lfs diff=lfs merge=lfs -text
-modelos/modelo_traduccion_es_en/*.safetensors filter=lfs diff=lfs merge=lfs -text

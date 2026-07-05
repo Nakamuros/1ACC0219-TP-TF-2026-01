@@ -9,6 +9,10 @@ frontend/dist/
 .env.*
 !.env.example
 
+# Pesos grandes: los descarga setup.py desde HuggingFace (no requiere Git LFS)
+modelos/modelo_mental_roberta/model.safetensors
+modelos/modelo_traduccion_es_en/model.safetensors
+
 # Herramientas locales de desarrollo/logging (no forman parte de la entrega)
 chatlog.py
 chat-yez.log

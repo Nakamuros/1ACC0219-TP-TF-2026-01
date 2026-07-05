@@ -2,6 +2,26 @@
 
 La interfaz simula una conversación y envía cada texto al modelo seleccionado. Está diseñada como una herramienta académica de detección de patrones, no como diagnóstico ni terapia.
 
+## Inicio rápido (un solo comando)
+
+Requisitos previos: Python 3.10+, pip y Node.js/npm. **No se necesita Git LFS.**
+
+```bash
+python setup.py
+```
+
+Este script instala las dependencias del backend y del frontend, descarga los
+modelos desde HuggingFace (el traductor `Helsinki-NLP/opus-mt-es-en` y la
+RoBERTa `treborDev/mhtc-roberta`, ~770 MB en total) y levanta la API en
+`http://localhost:8001` y la web en `http://localhost:5173`.
+
+Usa `python setup.py --no-run` para solo preparar el entorno sin levantar la app.
+
+Los modelos LightGBM, Regresión Logística y SVM ya vienen incluidos en el repo
+(son ligeros); solo los dos modelos grandes se descargan.
+
+Si prefieres levantar cada parte por separado, sigue los pasos manuales:
+
 ## Ejecutar la API
 
 Crear `.env` desde el ejemplo y colocar una clave de Gemini:
